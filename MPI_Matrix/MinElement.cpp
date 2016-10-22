@@ -43,7 +43,7 @@ void show_matrix(int array[][_SIZE])
 int MPI_find_min_element(int *array, int piece, int num_of_pieces)
 {
 	int result = _MAXELEMENT;
-	for (int i = 0; i < (_SIZE * _SIZE / (num_of_pieces - 1)); i++)
+	for (int i = 0; i < (_SIZE * _SIZE / (num_of_pieces)); i++)
 		if (array[i] < result)
 			result = array[i];
 	//cout << "Process[" << piece << "] Minimal Element: " << result << endl;
@@ -73,7 +73,8 @@ int find_min_of_min(int *array, int num)
 
 int main(int argc, char *argv[])
 {
-	int matrix[_SIZE][_SIZE], lin_arr[_SIZE * _SIZE], res_for_piece, seq_res, par_res, min_elem, result[_MAXPROC], recv_matrix[_MAXPROC][_SIZE*_SIZE];
+	int matrix[_SIZE][_SIZE], lin_arr[_SIZE * _SIZE], res_for_piece, seq_res, par_res, min_elem, result[_MAXPROC], recv_matrix[_MAXPROC][_SIZE*_SIZE], MinInProcess[_MAXPROC], TotalMin;
+	double seq_start_time, par_start_time, parallel_dt, sequence_dt;
 
 	MPI_Status StatusResult, StatusPiece;
 	int ProcNum;	// Количество процессов
@@ -81,7 +82,6 @@ int main(int argc, char *argv[])
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
 	MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
-	double start_time, parallel_dt, sequence_dt;
 	
 	if (ProcRank == 0)
 	{
@@ -93,31 +93,30 @@ int main(int argc, char *argv[])
 		cout << "Matrix is filling" << endl;
 		filling_matrix(matrix);
 		convert_to_linear(matrix, lin_arr);
-		/*
 		cout << "Matrix:" << endl;
 		show_matrix(matrix);
-		*/
-		start_time = MPI_Wtime();
+
+		// Последовательное выполнение
+		seq_start_time = MPI_Wtime();
 		seq_res = seq_find_min_element(matrix);
 		cout << "Minimal Element(sequence version): " << seq_res << endl;
-		sequence_dt = MPI_Wtime() - start_time;
+		sequence_dt = MPI_Wtime() - seq_start_time;
 		cout << "Time exceed(sequence version):" << sequence_dt << endl;
-		for (int i = 1; i < ProcNum; i++)
-		{
-			MPI_Send(&lin_arr[(i - 1) * (_SIZE * _SIZE / (ProcNum - 1))], (_SIZE * _SIZE / (ProcNum - 1)), MPI_INT, i, 0, MPI_COMM_WORLD);
-			MPI_Recv(&res_for_piece, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &StatusResult);
-			result[i] = res_for_piece;
-		}
-		par_res = find_min_of_min(result, ProcNum);
-		cout << "Minimal Element(parallel version): " << par_res << endl;
-		parallel_dt = MPI_Wtime() - start_time;
-		cout << "Time exceed(parallel version):" << parallel_dt << endl;
 	}
-	else
+	par_start_time = MPI_Wtime();
+	MPI_Scatter(&lin_arr[(ProcRank) * (_SIZE * _SIZE / (ProcNum))], (_SIZE * _SIZE / (ProcNum)), MPI_INT,
+				&recv_matrix[ProcRank],								(_SIZE * _SIZE / (ProcNum)), MPI_INT, 0, MPI_COMM_WORLD);
+	MinInProcess[ProcRank] = MPI_find_min_element(recv_matrix[ProcRank], ProcRank, ProcNum);
+
+	// Отображение минимальных элементов в частях матрицы
+	//cout << "Minimal Element in " << ProcRank << " process: ";
+	//cout << MinInProcess[ProcRank] << endl;
+	MPI_Reduce(&MinInProcess[ProcRank], &TotalMin, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
+	if (ProcRank == 0)
 	{
-		MPI_Recv(&recv_matrix[ProcRank], (_SIZE * _SIZE / (ProcNum - 1)), MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &StatusPiece);
-		min_elem = MPI_find_min_element(recv_matrix[ProcRank], ProcRank, ProcNum);
-		MPI_Send(&min_elem, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+		parallel_dt = MPI_Wtime() - par_start_time;
+		cout << "Minimal Element(parallel version): " << TotalMin << endl;
+		cout << "Time exceed(parallel version):" << parallel_dt << endl;
 	}
 	MPI_Finalize();
 
