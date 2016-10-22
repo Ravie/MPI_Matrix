@@ -10,7 +10,7 @@ using namespace std;
 
 void filling_matrix(int array[][_SIZE])
 {
-	srand(time(NULL));
+	srand((unsigned int)time(NULL));
 	for (int i = 0; i < _SIZE; i++)
 		for (int j = 0; j < _SIZE; j++)
 			array[i][j] = rand();
@@ -73,10 +73,9 @@ int find_min_of_min(int *array, int num)
 
 int main(int argc, char *argv[])
 {
-	int matrix[_SIZE][_SIZE], lin_arr[_SIZE * _SIZE], res_for_piece, seq_res, par_res, min_elem, result[_MAXPROC], recv_matrix[_MAXPROC][_SIZE*_SIZE], MinInProcess[_MAXPROC], TotalMin;
+	int matrix[_SIZE][_SIZE], lin_arr[_SIZE * _SIZE], seq_res, recv_matrix[_MAXPROC][_SIZE*_SIZE], MinInProcess[_MAXPROC], TotalMin;
 	double seq_start_time, par_start_time, parallel_dt, sequence_dt;
 
-	MPI_Status StatusResult, StatusPiece;
 	int ProcNum;	// Количество процессов
 	int ProcRank;	// Ранг процесса
 	MPI_Init(&argc, &argv);
@@ -87,7 +86,7 @@ int main(int argc, char *argv[])
 	{
 		if (_SIZE % (ProcNum - 1) != 0)
 		{
-			cout << "Trebyets9 kratnoe + 1" << _SIZE << endl;
+			cout << "Trebyets9 kratnoe" << _SIZE << endl;
 			return -1;
 		}
 		cout << "Matrix is filling" << endl;
